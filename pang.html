@@ -1,0 +1,585 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>pang module &#8212; Neuromorphic R-STDP Experiment Simulation  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="pong module" href="pong.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-pang">
+<span id="pang-module"></span><h1>pang module<a class="headerlink" href="#module-pang" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="pang.AIPong">
+<em class="property">class </em><code class="descclassname">pang.</code><code class="descname">AIPong</code><span class="sig-paren">(</span><em>num_games=100000</em>, <em>debug=False</em>, <em>num_threads=1</em>, <em>initial_weights=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#AIPong"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.AIPong" title="Permalink to this definition">¶</a></dt>
+<dd><p>Combines neural network and pong game.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>num_games</strong> (<em>int</em>) – Maximum number of games to play.</li>
+<li><strong>debug</strong> (<em>bool</em>) – Print debug messages.</li>
+<li><strong>num_threads</strong> (<em>int</em>) – Number of threads to use.</li>
+<li><strong>initial_weights</strong> (<em>numpy.array</em>) – Initial weight matrix.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="pang.AIPong.adjust_paddle_movement">
+<code class="descname">adjust_paddle_movement</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#AIPong.adjust_paddle_movement"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.AIPong.adjust_paddle_movement" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adjust paddle movement according to target cell.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.AIPong.get_parameters">
+<code class="descname">get_parameters</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#AIPong.get_parameters"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.AIPong.get_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get used parameters.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Dictionary of used parameters.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">dict</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.AIPong.poll_network">
+<code class="descname">poll_network</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#AIPong.poll_network"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.AIPong.poll_network" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get grid cell network wants to move to. Find this cell by finding the winning (highest rate) motor neuron.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.AIPong.reward_network_by_move">
+<code class="descname">reward_network_by_move</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#AIPong.reward_network_by_move"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.AIPong.reward_network_by_move" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reward network based on whether the correct cell was targeted.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.AIPong.run_games">
+<code class="descname">run_games</code><span class="sig-paren">(</span><em>save_every=0</em>, <em>folder=''</em>, <em>max_runs=inf</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#AIPong.run_games"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.AIPong.run_games" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run games by polling network and stepping through game.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>save_every</strong> (<em>int</em>) – Number of iterations after which to save variables.</li>
+<li><strong>folder</strong> (<em>string</em>) – Folder to save to.</li>
+<li><strong>max_runs</strong> (<em>int</em>) – Maximum number of iterations.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.BACKGROUND">
+<code class="descclassname">pang.</code><code class="descname">BACKGROUND</code><em class="property"> = True</em><a class="headerlink" href="#pang.BACKGROUND" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>bool</em> – Indicates whether to inject current noise into each neuron.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.BG_STD">
+<code class="descclassname">pang.</code><code class="descname">BG_STD</code><em class="property"> = 100.0</em><a class="headerlink" href="#pang.BG_STD" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>float</em> – Standard deviation of Gaussian current noise in picoampere.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.EXPERIMENT_LENGTH_SCALING">
+<code class="descclassname">pang.</code><code class="descname">EXPERIMENT_LENGTH_SCALING</code><em class="property"> = 1</em><a class="headerlink" href="#pang.EXPERIMENT_LENGTH_SCALING" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>int</em> – Scaling factor that affects simulation time and length of spiketrain.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.ISI">
+<code class="descclassname">pang.</code><code class="descname">ISI</code><em class="property"> = 10.0</em><a class="headerlink" href="#pang.ISI" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>float</em> – Inter-Spike Interval (ISI) of input spiketrain.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.LEARNING_RATE">
+<code class="descclassname">pang.</code><code class="descname">LEARNING_RATE</code><em class="property"> = 0.125</em><a class="headerlink" href="#pang.LEARNING_RATE" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>float</em> – Learning rate to use in weight updates.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.MEAN_RUNS">
+<code class="descclassname">pang.</code><code class="descname">MEAN_RUNS</code><em class="property"> = 2.0</em><a class="headerlink" href="#pang.MEAN_RUNS" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>float</em> – Used as factor when updating expected reward.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.NEURON_DICT">
+<code class="descclassname">pang.</code><code class="descname">NEURON_DICT</code><em class="property"> = {'tau_m': 28.53, 'V_reset': 355.0, 'V_th': 1278.0, 'V_m': 616.0, 't_ref': 3.98, 'C_m': 2.36, 'tau_syn_ex': 1.8, 'E_L': 616.0}</em><a class="headerlink" href="#pang.NEURON_DICT" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>dict</em> – Dictionary with neuron parameters.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.NO_SPIKES">
+<code class="descclassname">pang.</code><code class="descname">NO_SPIKES</code><em class="property"> = 20</em><a class="headerlink" href="#pang.NO_SPIKES" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>int</em> – Number of spikes for input spiketrain.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="pang.Network">
+<em class="property">class </em><code class="descclassname">pang.</code><code class="descname">Network</code><span class="sig-paren">(</span><em>num_neurons=32</em>, <em>num_threads=1</em>, <em>initial_weights=None</em>, <em>with_voltmeters=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Represents the spiking neural network.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>num_neurons</strong> (<em>int</em>) – Number of neurons to use.</li>
+<li><strong>num_threads</strong> (<em>int</em>) – Number of threads to use.</li>
+<li><strong>initial_weights</strong> (<em>list</em><em>, </em><em>numpy.ndarray</em>) – Initial weight matrix.</li>
+<li><strong>with_voltmeters</strong> (<em>bool</em>) – Create and attach voltmeters.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="pang.Network.apply_reward">
+<code class="descname">apply_reward</code><span class="sig-paren">(</span><em>reward</em>, <em>ball_neuron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.apply_reward"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.apply_reward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply given reward by calculating and applying weight updates.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>reward</strong> (<em>float</em>) – Reward.</li>
+<li><strong>ball_neuron</strong> (<em>int</em>) – Input neuron that corresponds to the ball’s cell (only this unit has transmitted spiketrain).</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.calculate_stdp">
+<code class="descname">calculate_stdp</code><span class="sig-paren">(</span><em>pre_spikes</em>, <em>post_spikes</em>, <em>only_causal=True</em>, <em>next_neighbor=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.calculate_stdp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.calculate_stdp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates STDP trace for given spike trains.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>pre_spikes</strong> (<em>list</em><em>, </em><em>numpy.array</em>) – Presynaptic spike times in milliseconds.</li>
+<li><strong>post_spikes</strong> (<em>list</em><em>, </em><em>numpy.array</em>) – Postsynaptic spike times in milliseconds.</li>
+<li><strong>only_causal</strong> (<em>bool</em>) – Use only causal part.</li>
+<li><strong>next_neighbor</strong> (<em>bool</em>) – Use only next-neighbor coincidences.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Scalar that corresponds to accumulated STDP trace.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.create_input_spiketrain">
+<code class="descname">create_input_spiketrain</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.create_input_spiketrain"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.create_input_spiketrain" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create input spiketrain.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">numpy.array of spike times.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.dls2nest">
+<code class="descname">dls2nest</code><span class="sig-paren">(</span><em>dls_weight</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.dls2nest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.dls2nest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert weights from DLS into NEST domain using linear transformation.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>dls_weight</strong> (<em>list</em><em>, </em><em>int</em><em>, </em><em>numpy.array</em>) – Weight to convert.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Weight in NEST domain.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.get_activation_function">
+<code class="descname">get_activation_function</code><span class="sig-paren">(</span><em>start</em>, <em>stop</em>, <em>step=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.get_activation_function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.get_activation_function" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get activation function for range of weights.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>start</strong> (<em>int</em>) – Starting weight.</li>
+<li><strong>stop</strong> (<em>int</em>) – Stopping weight.</li>
+<li><strong>step</strong> (<em>int</em>) – Step size for weights.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">List of list containing spike rates at different weights.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.get_all_weights_flat">
+<code class="descname">get_all_weights_flat</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.get_all_weights_flat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.get_all_weights_flat" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get all weights as flattened array.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">numpy.array of all weights in DLS weight domain.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.get_rates">
+<code class="descname">get_rates</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.get_rates"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.get_rates" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get rates from spike detectors.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">numpy.array of neuronal spike rates.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.get_spiketrains">
+<code class="descname">get_spiketrains</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.get_spiketrains"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.get_spiketrains" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract spike times from spikedetector.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of list containing spike times from all neurons.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.get_voltage_traces">
+<code class="descname">get_voltage_traces</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.get_voltage_traces"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.get_voltage_traces" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get voltage traces from voltmeters.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">List of voltage traces for all neurons.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.get_weights">
+<code class="descname">get_weights</code><span class="sig-paren">(</span><em>neuron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.get_weights"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.get_weights" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get weights targeting a specific neuron.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>neuron</strong> (<em>int</em>) – Number of targeted neuron.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">numpy.ndarray of weights targeting given neuron in DLS weight domain.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.nest2dls">
+<code class="descname">nest2dls</code><span class="sig-paren">(</span><em>nest_weight</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.nest2dls"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.nest2dls" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert weight from NEST into DLS domain using linear transformation.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>nest_weight</strong> (<em>list</em><em>, </em><em>int</em><em>, </em><em>numpy.array</em>) – Weight to convert.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">Weight in DLS domain.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.reset_network">
+<code class="descname">reset_network</code><span class="sig-paren">(</span><em>initial=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.reset_network"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.reset_network" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reset network and NEST objects.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>initial</strong> (<em>bool</em>) – If false, weights will be conserved.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.reset_rng">
+<code class="descname">reset_rng</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.reset_rng"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.reset_rng" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reset RNG using new seed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.run_simulation">
+<code class="descname">run_simulation</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.run_simulation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.run_simulation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run NEST simulation.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.set_all_weights_flat">
+<code class="descname">set_all_weights_flat</code><span class="sig-paren">(</span><em>weights</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.set_all_weights_flat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.set_all_weights_flat" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set all weights using given list.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>weights</strong> (<em>list</em><em>, </em><em>numpy.array</em>) – Flat list or array to set weights to.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.set_input_spiketrain">
+<code class="descname">set_input_spiketrain</code><span class="sig-paren">(</span><em>input_cell</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.set_input_spiketrain"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.set_input_spiketrain" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set spike train encoding position of ball along y-axis.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>input_cell</strong> (<em>int</em>) – Input unit that corresponds to ball position.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="pang.Network.set_weights">
+<code class="descname">set_weights</code><span class="sig-paren">(</span><em>weights</em>, <em>neuron</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pang.html#Network.set_weights"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pang.Network.set_weights" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set weights of specific neuron.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>weights</strong> (<em>list</em><em>, </em><em>numpy.array</em>) – Weights to set.</li>
+<li><strong>neuron</strong> (<em>int</em>) – Number of neuron.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.ONLY_CAUSAL">
+<code class="descclassname">pang.</code><code class="descname">ONLY_CAUSAL</code><em class="property"> = True</em><a class="headerlink" href="#pang.ONLY_CAUSAL" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>bool</em> – Consider only causal part of STDP curve.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.POLL_TIME">
+<code class="descclassname">pang.</code><code class="descname">POLL_TIME</code><em class="property"> = 200</em><a class="headerlink" href="#pang.POLL_TIME" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>int</em> – Amount of time the network is simulated in milliseconds.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.REWARD_OFFSET">
+<code class="descclassname">pang.</code><code class="descname">REWARD_OFFSET</code><em class="property"> = 0.0</em><a class="headerlink" href="#pang.REWARD_OFFSET" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>float</em> – Reward offset.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.STDP_AMPLITUDE">
+<code class="descclassname">pang.</code><code class="descname">STDP_AMPLITUDE</code><em class="property"> = 36.0</em><a class="headerlink" href="#pang.STDP_AMPLITUDE" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>float</em> – Amplitude of STDP curve in arbitrary units.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.STDP_SATURATION">
+<code class="descclassname">pang.</code><code class="descname">STDP_SATURATION</code><em class="property"> = 128</em><a class="headerlink" href="#pang.STDP_SATURATION" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>int</em> – Cutoff for accumulated STDP.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.STDP_TAU">
+<code class="descclassname">pang.</code><code class="descname">STDP_TAU</code><em class="property"> = 64.0</em><a class="headerlink" href="#pang.STDP_TAU" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>float</em> – Time constant of STDP curve in milliseconds.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.TRAIN_TYPE">
+<code class="descclassname">pang.</code><code class="descname">TRAIN_TYPE</code><em class="property"> = 'uniform'</em><a class="headerlink" href="#pang.TRAIN_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>string</em> – Indicates whether to use a uniform (“uniform”) or Poissonian (“possion”) input spiketrain.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.WEIGHT">
+<code class="descclassname">pang.</code><code class="descname">WEIGHT</code><em class="property"> = 10.0</em><a class="headerlink" href="#pang.WEIGHT" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>float</em> – Initial weight when using uniform initial weight distribution.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.WEIGHT_DIST">
+<code class="descclassname">pang.</code><code class="descname">WEIGHT_DIST</code><em class="property"> = 'gaussian'</em><a class="headerlink" href="#pang.WEIGHT_DIST" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>string</em> – Indicates whether to use uniform or gaussian initial weight distribution.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.WEIGHT_MAX">
+<code class="descclassname">pang.</code><code class="descname">WEIGHT_MAX</code><em class="property"> = 63.0</em><a class="headerlink" href="#pang.WEIGHT_MAX" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>float</em> – Saturation weight.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.WEIGHT_MEAN">
+<code class="descclassname">pang.</code><code class="descname">WEIGHT_MEAN</code><em class="property"> = 14.0</em><a class="headerlink" href="#pang.WEIGHT_MEAN" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>float</em> – Average initial weight for Gaussian distribution.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.WEIGHT_OFFSET">
+<code class="descclassname">pang.</code><code class="descname">WEIGHT_OFFSET</code><em class="property"> = 32.0</em><a class="headerlink" href="#pang.WEIGHT_OFFSET" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>float</em> – Offset for weight transformation.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.WEIGHT_SCALE">
+<code class="descclassname">pang.</code><code class="descname">WEIGHT_SCALE</code><em class="property"> = 6.349206349206349</em><a class="headerlink" href="#pang.WEIGHT_SCALE" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>float</em> – Scaling factor for weight transformation.</p>
+</dd></dl>
+
+<dl class="data">
+<dt id="pang.WEIGHT_STD">
+<code class="descclassname">pang.</code><code class="descname">WEIGHT_STD</code><em class="property"> = 2.0</em><a class="headerlink" href="#pang.WEIGHT_STD" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>float</em> – Standard deviation of Gaussian initial weight distribution.</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Neuromorphic R-STDP Experiment Simulation</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="pong.html">pong module</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">pang module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="pong.html" title="previous chapter">pong module</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Timo Wunderlich.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/pang.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

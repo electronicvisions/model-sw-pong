@@ -1,0 +1,291 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>pong &#8212; Neuromorphic R-STDP Experiment Simulation  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pong</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">random</span> <span class="k">import</span> <span class="n">randint</span><span class="p">,</span> <span class="n">choice</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="k">import</span> <span class="n">time</span><span class="p">,</span> <span class="n">sleep</span>
+<span class="kn">from</span> <span class="nn">threading</span> <span class="k">import</span> <span class="n">Thread</span>
+
+<span class="n">LEFT_WIN</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+<span class="n">RIGHT_WIN</span> <span class="o">=</span> <span class="o">+</span><span class="mi">1</span>
+<span class="n">NO_WIN</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="n">MOVE_UP</span> <span class="o">=</span> <span class="o">+</span><span class="mi">1</span>
+<span class="n">MOVE_DOWN</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+<span class="n">DONT_MOVE</span> <span class="o">=</span> <span class="mi">0</span>
+
+
+<div class="viewcode-block" id="BallOrPuck"><a class="viewcode-back" href="../pong.html#pong.BallOrPuck">[docs]</a><span class="k">class</span> <span class="nc">BallOrPuck</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Class that represents either a ball or a puck.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            game (GameOfPong): Pong game.</span>
+<span class="sd">            x_pos (float): Initial x position in unit length.</span>
+<span class="sd">            y_pos (float): Initial y position in unit length.</span>
+<span class="sd">            velocity (float): Change in position per iteration.</span>
+<span class="sd">            direction (list, float): Heading.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span>
+                 <span class="n">x_pos</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+                 <span class="n">y_pos</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+                 <span class="n">velocity</span><span class="o">=</span><span class="mi">1</span> <span class="o">/</span> <span class="mf">5.</span><span class="p">,</span>
+                 <span class="n">direction</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x_pos</span> <span class="o">=</span> <span class="n">x_pos</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">y_pos</span> <span class="o">=</span> <span class="n">y_pos</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">velocity</span> <span class="o">=</span> <span class="n">velocity</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">direction</span> <span class="o">=</span> <span class="n">direction</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">game</span> <span class="o">=</span> <span class="n">game</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_cell</span><span class="p">()</span>
+
+<div class="viewcode-block" id="BallOrPuck.get_cell"><a class="viewcode-back" href="../pong.html#pong.BallOrPuck.get_cell">[docs]</a>    <span class="k">def</span> <span class="nf">get_cell</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell</span></div>
+
+<div class="viewcode-block" id="BallOrPuck.update_cell"><a class="viewcode-back" href="../pong.html#pong.BallOrPuck.update_cell">[docs]</a>    <span class="k">def</span> <span class="nf">update_cell</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Update cell based on position.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x_cell</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_pos</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">x_length</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">x_grid</span><span class="p">))</span>
+        <span class="n">y_cell</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_pos</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">y_length</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">y_grid</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell</span> <span class="o">=</span> <span class="p">[</span><span class="n">x_cell</span><span class="p">,</span> <span class="n">y_cell</span><span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="Ball"><a class="viewcode-back" href="../pong.html#pong.Ball">[docs]</a><span class="k">class</span> <span class="nc">Ball</span><span class="p">(</span><span class="n">BallOrPuck</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Class representing the ball.</span>
+<span class="sd">    </span>
+<span class="sd">        Args:</span>
+<span class="sd">            radius (float): Radius of ball in unit length.</span>
+
+<span class="sd">        For other args, see :class:`BallOrPuck`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span>
+                 <span class="n">x_pos</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+                 <span class="n">y_pos</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+                 <span class="n">velocity</span><span class="o">=</span><span class="mf">0.025</span><span class="p">,</span>
+                 <span class="n">direction</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">],</span>
+                 <span class="n">radius</span><span class="o">=</span><span class="mf">0.02</span><span class="p">):</span>
+        <span class="n">BallOrPuck</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span> <span class="n">x_pos</span><span class="p">,</span> <span class="n">y_pos</span><span class="p">,</span> <span class="n">velocity</span><span class="p">,</span> <span class="n">direction</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ball_radius</span> <span class="o">=</span> <span class="n">radius</span>  <span class="c1"># unit length</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_cell</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Puck"><a class="viewcode-back" href="../pong.html#pong.Puck">[docs]</a><span class="k">class</span> <span class="nc">Puck</span><span class="p">(</span><span class="n">BallOrPuck</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Class representing the puck.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            direction (float, int): +1 for up, -1 for down, 0 for no movement.</span>
+
+<span class="sd">        For other args, see :class:`BallOrPuck`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span>
+                 <span class="n">length</span><span class="o">=</span><span class="mf">0.07</span><span class="p">,</span>
+                 <span class="n">y_pos</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+                 <span class="n">velocity</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span>
+                 <span class="n">direction</span><span class="o">=</span><span class="mf">0.</span><span class="p">):</span>
+        <span class="n">BallOrPuck</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">game</span><span class="p">,</span> <span class="n">game</span><span class="o">.</span><span class="n">x_length</span><span class="p">,</span> <span class="n">y_pos</span><span class="p">,</span> <span class="n">velocity</span><span class="p">,</span>
+                            <span class="n">direction</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">paddle_length</span> <span class="o">=</span> <span class="n">length</span>  <span class="c1"># unit length</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_cell</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="GameOfPong"><a class="viewcode-back" href="../pong.html#pong.GameOfPong">[docs]</a><span class="k">class</span> <span class="nc">GameOfPong</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Class representing a game of Pong. Playing field: 1 by 1 discretized into cells.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x_grid (int): Number of cells to discretize x-axis into.</span>
+<span class="sd">            y_grid (int): Number of cells to discretize y-axis into.</span>
+<span class="sd">            debug (bool): Print debugging messages.</span>
+<span class="sd">            norm (string): &quot;L1&quot; or &quot;L2&quot;, defines norm to be used for velocity vector.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_grid</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">y_grid</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="s2">&quot;L1&quot;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x_length</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># length in x-direction in unit length</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">y_length</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># length in y-direction in unit length</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x_grid</span> <span class="o">=</span> <span class="n">x_grid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">y_grid</span> <span class="o">=</span> <span class="n">y_grid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span> <span class="o">=</span> <span class="n">Puck</span><span class="p">(</span><span class="bp">self</span>
+                                 <span class="p">)</span>  <span class="c1"># AI paddle, center position along y-axis</span>
+        <span class="k">if</span> <span class="n">norm</span> <span class="o">==</span> <span class="s2">&quot;L2&quot;</span><span class="p">:</span>
+            <span class="n">initial_angle</span> <span class="o">=</span> <span class="n">choice</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">180.</span><span class="p">])</span> <span class="o">+</span> <span class="n">randint</span><span class="p">(</span>
+                <span class="o">-</span><span class="mi">45</span><span class="p">,</span> <span class="mi">45</span><span class="p">)</span>  <span class="c1"># random initial direction toward either end</span>
+            <span class="n">initial_vx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">initial_angle</span> <span class="o">/</span> <span class="mf">360.</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+            <span class="n">initial_vy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">initial_angle</span> <span class="o">/</span> <span class="mf">360.</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">norm</span> <span class="o">==</span> <span class="s2">&quot;L1&quot;</span><span class="p">:</span>
+            <span class="n">initial_vx</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span>
+            <span class="n">initial_vy</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">-</span> <span class="n">initial_vx</span>
+            <span class="n">initial_vx</span> <span class="o">*=</span> <span class="n">choice</span><span class="p">([</span><span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">])</span>
+            <span class="n">initial_vy</span> <span class="o">*=</span> <span class="n">choice</span><span class="p">([</span><span class="o">-</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ball</span> <span class="o">=</span> <span class="n">Ball</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="p">[</span><span class="n">initial_vx</span><span class="p">,</span> <span class="n">initial_vy</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">result</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">=</span> <span class="n">debug</span>
+
+<div class="viewcode-block" id="GameOfPong.update_ball_direction"><a class="viewcode-back" href="../pong.html#pong.GameOfPong.update_ball_direction">[docs]</a>    <span class="k">def</span> <span class="nf">update_ball_direction</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;In case of a collision, update the direction of ball velocity. Also determine if the ball is in either player&#39;s net.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Either NO_WIN or RIGHT_WIN.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">y_pos</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">ball_radius</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_length</span><span class="p">:</span>  <span class="c1"># upper edge</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">direction</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">direction</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">NO_WIN</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">y_pos</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">ball_radius</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># lower edge</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">direction</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">direction</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">NO_WIN</span>
+        <span class="c1"># left paddle/wall</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">x_pos</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">ball_radius</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">direction</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">direction</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">NO_WIN</span>
+        <span class="c1"># right paddle</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">x_pos</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">ball_radius</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x_length</span><span class="p">:</span>
+            <span class="c1"># check if win for right player</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">y_pos</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">paddle_length</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">y_pos</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">y_pos</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">paddle_length</span> <span class="o">/</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">direction</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">direction</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">return</span> <span class="n">NO_WIN</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">RIGHT_WIN</span>
+        <span class="k">return</span> <span class="n">NO_WIN</span></div>
+
+<div class="viewcode-block" id="GameOfPong.propagate_ball_and_paddles"><a class="viewcode-back" href="../pong.html#pong.GameOfPong.propagate_ball_and_paddles">[docs]</a>    <span class="k">def</span> <span class="nf">propagate_ball_and_paddles</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Update ball and paddle coordinates based on direction and velocity. Also update their cells.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">y_pos</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">direction</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">velocity</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">y_pos</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">y_pos</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">y_pos</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_length</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">y_pos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_length</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">y_pos</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">velocity</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">direction</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">x_pos</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">velocity</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">direction</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">update_cell</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">update_cell</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="GameOfPong.move_right_paddle_up"><a class="viewcode-back" href="../pong.html#pong.GameOfPong.move_right_paddle_up">[docs]</a>    <span class="k">def</span> <span class="nf">move_right_paddle_up</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">direction</span> <span class="o">=</span> <span class="n">MOVE_UP</span></div>
+
+<div class="viewcode-block" id="GameOfPong.move_right_paddle_down"><a class="viewcode-back" href="../pong.html#pong.GameOfPong.move_right_paddle_down">[docs]</a>    <span class="k">def</span> <span class="nf">move_right_paddle_down</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">direction</span> <span class="o">=</span> <span class="n">MOVE_DOWN</span></div>
+
+<div class="viewcode-block" id="GameOfPong.dont_move_right_paddle"><a class="viewcode-back" href="../pong.html#pong.GameOfPong.dont_move_right_paddle">[docs]</a>    <span class="k">def</span> <span class="nf">dont_move_right_paddle</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">direction</span> <span class="o">=</span> <span class="n">DONT_MOVE</span></div>
+
+<div class="viewcode-block" id="GameOfPong.get_right_paddle_position"><a class="viewcode-back" href="../pong.html#pong.GameOfPong.get_right_paddle_position">[docs]</a>    <span class="k">def</span> <span class="nf">get_right_paddle_position</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">y_pos</span></div>
+
+<div class="viewcode-block" id="GameOfPong.get_right_paddle_length"><a class="viewcode-back" href="../pong.html#pong.GameOfPong.get_right_paddle_length">[docs]</a>    <span class="k">def</span> <span class="nf">get_right_paddle_length</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">paddle_length</span></div>
+
+<div class="viewcode-block" id="GameOfPong.get_right_paddle_cell"><a class="viewcode-back" href="../pong.html#pong.GameOfPong.get_right_paddle_cell">[docs]</a>    <span class="k">def</span> <span class="nf">get_right_paddle_cell</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">get_cell</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="GameOfPong.get_ball_cell"><a class="viewcode-back" href="../pong.html#pong.GameOfPong.get_ball_cell">[docs]</a>    <span class="k">def</span> <span class="nf">get_ball_cell</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">get_cell</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="GameOfPong.step"><a class="viewcode-back" href="../pong.html#pong.GameOfPong.step">[docs]</a>    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Perform one game step.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ball_status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">update_ball_direction</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">propagate_ball_and_paddles</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">ball_status</span> <span class="o">!=</span> <span class="n">NO_WIN</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">result</span> <span class="o">=</span> <span class="n">ball_status</span>
+        <span class="k">return</span> <span class="n">ball_status</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Neuromorphic R-STDP Experiment Simulation</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../pong.html">pong module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pang.html">pang module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Timo Wunderlich.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

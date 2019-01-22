@@ -1,0 +1,254 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>pong module &#8212; Neuromorphic R-STDP Experiment Simulation  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="pang module" href="pang.html" />
+    <link rel="prev" title="Welcome to Neuromorphic R-STDP Experiment Simulation’s documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-pong">
+<span id="pong-module"></span><h1>pong module<a class="headerlink" href="#module-pong" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="pong.Ball">
+<em class="property">class </em><code class="descclassname">pong.</code><code class="descname">Ball</code><span class="sig-paren">(</span><em>game, x_pos=0.5, y_pos=0.5, velocity=0.025, direction=[-0.5, 0.5], radius=0.02</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#Ball"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.Ball" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pong.BallOrPuck" title="pong.BallOrPuck"><code class="xref py py-class docutils literal"><span class="pre">pong.BallOrPuck</span></code></a></p>
+<p>Class representing the ball.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>radius</strong> (<em>float</em>) – Radius of ball in unit length.</td>
+</tr>
+</tbody>
+</table>
+<p>For other args, see <a class="reference internal" href="#pong.BallOrPuck" title="pong.BallOrPuck"><code class="xref py py-class docutils literal"><span class="pre">BallOrPuck</span></code></a>.</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="pong.BallOrPuck">
+<em class="property">class </em><code class="descclassname">pong.</code><code class="descname">BallOrPuck</code><span class="sig-paren">(</span><em>game</em>, <em>x_pos=0.5</em>, <em>y_pos=0.5</em>, <em>velocity=0.2</em>, <em>direction=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#BallOrPuck"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.BallOrPuck" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class that represents either a ball or a puck.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>game</strong> (<a class="reference internal" href="#pong.GameOfPong" title="pong.GameOfPong"><em>GameOfPong</em></a>) – Pong game.</li>
+<li><strong>x_pos</strong> (<em>float</em>) – Initial x position in unit length.</li>
+<li><strong>y_pos</strong> (<em>float</em>) – Initial y position in unit length.</li>
+<li><strong>velocity</strong> (<em>float</em>) – Change in position per iteration.</li>
+<li><strong>direction</strong> (<em>list</em><em>, </em><em>float</em>) – Heading.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="pong.BallOrPuck.get_cell">
+<code class="descname">get_cell</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#BallOrPuck.get_cell"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.BallOrPuck.get_cell" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="pong.BallOrPuck.update_cell">
+<code class="descname">update_cell</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#BallOrPuck.update_cell"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.BallOrPuck.update_cell" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update cell based on position.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="pong.GameOfPong">
+<em class="property">class </em><code class="descclassname">pong.</code><code class="descname">GameOfPong</code><span class="sig-paren">(</span><em>x_grid=32</em>, <em>y_grid=32</em>, <em>debug=False</em>, <em>norm='L1'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#GameOfPong"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.GameOfPong" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Class representing a game of Pong. Playing field: 1 by 1 discretized into cells.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>x_grid</strong> (<em>int</em>) – Number of cells to discretize x-axis into.</li>
+<li><strong>y_grid</strong> (<em>int</em>) – Number of cells to discretize y-axis into.</li>
+<li><strong>debug</strong> (<em>bool</em>) – Print debugging messages.</li>
+<li><strong>norm</strong> (<em>string</em>) – “L1” or “L2”, defines norm to be used for velocity vector.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="pong.GameOfPong.dont_move_right_paddle">
+<code class="descname">dont_move_right_paddle</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#GameOfPong.dont_move_right_paddle"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.GameOfPong.dont_move_right_paddle" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="pong.GameOfPong.get_ball_cell">
+<code class="descname">get_ball_cell</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#GameOfPong.get_ball_cell"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.GameOfPong.get_ball_cell" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="pong.GameOfPong.get_right_paddle_cell">
+<code class="descname">get_right_paddle_cell</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#GameOfPong.get_right_paddle_cell"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.GameOfPong.get_right_paddle_cell" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="pong.GameOfPong.get_right_paddle_length">
+<code class="descname">get_right_paddle_length</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#GameOfPong.get_right_paddle_length"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.GameOfPong.get_right_paddle_length" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="pong.GameOfPong.get_right_paddle_position">
+<code class="descname">get_right_paddle_position</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#GameOfPong.get_right_paddle_position"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.GameOfPong.get_right_paddle_position" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="pong.GameOfPong.move_right_paddle_down">
+<code class="descname">move_right_paddle_down</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#GameOfPong.move_right_paddle_down"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.GameOfPong.move_right_paddle_down" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="pong.GameOfPong.move_right_paddle_up">
+<code class="descname">move_right_paddle_up</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#GameOfPong.move_right_paddle_up"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.GameOfPong.move_right_paddle_up" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="pong.GameOfPong.propagate_ball_and_paddles">
+<code class="descname">propagate_ball_and_paddles</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#GameOfPong.propagate_ball_and_paddles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.GameOfPong.propagate_ball_and_paddles" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update ball and paddle coordinates based on direction and velocity. Also update their cells.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pong.GameOfPong.step">
+<code class="descname">step</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#GameOfPong.step"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.GameOfPong.step" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform one game step.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="pong.GameOfPong.update_ball_direction">
+<code class="descname">update_ball_direction</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#GameOfPong.update_ball_direction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.GameOfPong.update_ball_direction" title="Permalink to this definition">¶</a></dt>
+<dd><p>In case of a collision, update the direction of ball velocity. Also determine if the ball is in either player’s net.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Either NO_WIN or RIGHT_WIN.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="pong.Puck">
+<em class="property">class </em><code class="descclassname">pong.</code><code class="descname">Puck</code><span class="sig-paren">(</span><em>game</em>, <em>length=0.07</em>, <em>y_pos=0.5</em>, <em>velocity=0.05</em>, <em>direction=0.0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/pong.html#Puck"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#pong.Puck" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#pong.BallOrPuck" title="pong.BallOrPuck"><code class="xref py py-class docutils literal"><span class="pre">pong.BallOrPuck</span></code></a></p>
+<p>Class representing the puck.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>direction</strong> (<em>float</em><em>, </em><em>int</em>) – +1 for up, -1 for down, 0 for no movement.</td>
+</tr>
+</tbody>
+</table>
+<p>For other args, see <a class="reference internal" href="#pong.BallOrPuck" title="pong.BallOrPuck"><code class="xref py py-class docutils literal"><span class="pre">BallOrPuck</span></code></a>.</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Neuromorphic R-STDP Experiment Simulation</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">pong module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pang.html">pang module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to Neuromorphic R-STDP Experiment Simulation’s documentation!</a></li>
+      <li>Next: <a href="pang.html" title="next chapter">pang module</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Timo Wunderlich.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/pong.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

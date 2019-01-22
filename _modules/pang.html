@@ -1,0 +1,715 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>pang &#8212; Neuromorphic R-STDP Experiment Simulation  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for pang</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">nest</span>
+<span class="kn">import</span> <span class="nn">cProfile</span>
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">pong</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">gzip</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="k">import</span> <span class="n">copy</span>
+
+<span class="c1">#: float: Amplitude of STDP curve in arbitrary units.</span>
+<span class="n">STDP_AMPLITUDE</span> <span class="o">=</span> <span class="mf">36.0</span>
+<span class="c1">#: float: Time constant of STDP curve in milliseconds.</span>
+<span class="n">STDP_TAU</span> <span class="o">=</span> <span class="mf">64.</span>
+<span class="c1">#: int: Cutoff for accumulated STDP.</span>
+<span class="n">STDP_SATURATION</span> <span class="o">=</span> <span class="mi">128</span>
+<span class="c1">#: bool: Consider only causal part of STDP curve.</span>
+<span class="n">ONLY_CAUSAL</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="c1">#: int: Scaling factor that affects simulation time and length of spiketrain.</span>
+<span class="n">EXPERIMENT_LENGTH_SCALING</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="c1">#: int: Amount of time the network is simulated in milliseconds.</span>
+<span class="n">POLL_TIME</span> <span class="o">=</span> <span class="mi">200</span> <span class="o">*</span> <span class="n">EXPERIMENT_LENGTH_SCALING</span>
+<span class="c1">#: int: Number of spikes for input spiketrain.</span>
+<span class="n">NO_SPIKES</span> <span class="o">=</span> <span class="mi">20</span> <span class="o">*</span> <span class="n">EXPERIMENT_LENGTH_SCALING</span>
+<span class="c1">#: float: Inter-Spike Interval (ISI) of input spiketrain.</span>
+<span class="n">ISI</span> <span class="o">=</span> <span class="mf">10.</span>
+<span class="c1">#: bool: Indicates whether to inject current noise into each neuron.</span>
+<span class="n">BACKGROUND</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="c1">#: float: Standard deviation of Gaussian current noise in picoampere.</span>
+<span class="n">BG_STD</span> <span class="o">=</span> <span class="mf">100.</span>
+<span class="c1">#: string: Indicates whether to use a uniform (&quot;uniform&quot;) or Poissonian (&quot;possion&quot;) input spiketrain.</span>
+<span class="n">TRAIN_TYPE</span> <span class="o">=</span> <span class="s2">&quot;uniform&quot;</span>
+<span class="c1">#: float: Initial weight when using uniform initial weight distribution.</span>
+<span class="n">WEIGHT</span> <span class="o">=</span> <span class="mf">10.0</span>
+<span class="c1">#: float: Saturation weight.</span>
+<span class="n">WEIGHT_MAX</span> <span class="o">=</span> <span class="mf">63.0</span>
+<span class="c1">#: float: Scaling factor for weight transformation.</span>
+<span class="n">WEIGHT_SCALE</span> <span class="o">=</span> <span class="mf">400.0</span> <span class="o">/</span> <span class="mi">63</span>
+<span class="c1">#: float: Offset for weight transformation.</span>
+<span class="n">WEIGHT_OFFSET</span> <span class="o">=</span> <span class="mf">32.</span>
+<span class="c1">#: string: Indicates whether to use uniform or gaussian initial weight distribution.</span>
+<span class="n">WEIGHT_DIST</span> <span class="o">=</span> <span class="s2">&quot;gaussian&quot;</span>
+<span class="c1">#: float: Average initial weight for Gaussian distribution.</span>
+<span class="n">WEIGHT_MEAN</span> <span class="o">=</span> <span class="mf">14.</span>
+<span class="c1">#: float: Standard deviation of Gaussian initial weight distribution.</span>
+<span class="n">WEIGHT_STD</span> <span class="o">=</span> <span class="mf">2.</span>
+<span class="c1">#: float: Learning rate to use in weight updates.</span>
+<span class="n">LEARNING_RATE</span> <span class="o">=</span> <span class="mf">0.125</span>
+<span class="c1">#: float: Used as factor when updating expected reward.</span>
+<span class="n">MEAN_RUNS</span> <span class="o">=</span> <span class="mf">2.0</span>
+<span class="c1">#: dict: Dictionary with neuron parameters.</span>
+<span class="n">NEURON_DICT</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;tau_m&quot;</span><span class="p">:</span> <span class="mf">28.53</span><span class="p">,</span>
+    <span class="s2">&quot;V_th&quot;</span><span class="p">:</span> <span class="mf">1278.</span><span class="p">,</span>
+    <span class="s2">&quot;E_L&quot;</span><span class="p">:</span> <span class="mf">616.</span><span class="p">,</span>
+    <span class="s2">&quot;V_m&quot;</span><span class="p">:</span> <span class="mf">616.</span><span class="p">,</span>
+    <span class="s2">&quot;V_reset&quot;</span><span class="p">:</span> <span class="mf">355.</span><span class="p">,</span>
+    <span class="s2">&quot;t_ref&quot;</span><span class="p">:</span> <span class="mf">3.98</span><span class="p">,</span>
+    <span class="s2">&quot;tau_syn_ex&quot;</span><span class="p">:</span> <span class="mf">1.8</span><span class="p">,</span>
+    <span class="s2">&quot;C_m&quot;</span><span class="p">:</span> <span class="mf">2.36</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="c1">#: float: Reward offset.</span>
+<span class="n">REWARD_OFFSET</span> <span class="o">=</span> <span class="mf">0.</span>
+
+
+<div class="viewcode-block" id="Network"><a class="viewcode-back" href="../pang.html#pang.Network">[docs]</a><span class="k">class</span> <span class="nc">Network</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represents the spiking neural network.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            num_neurons (int): Number of neurons to use.</span>
+<span class="sd">            num_threads (int): Number of threads to use.</span>
+<span class="sd">            initial_weights (list, numpy.ndarray): Initial weight matrix.</span>
+<span class="sd">            with_voltmeters (bool): Create and attach voltmeters.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">num_neurons</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
+                 <span class="n">num_threads</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                 <span class="n">initial_weights</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">with_voltmeters</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_threads</span> <span class="o">=</span> <span class="n">num_threads</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span> <span class="o">=</span> <span class="n">num_neurons</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_weights</span> <span class="o">=</span> <span class="n">initial_weights</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">with_voltmeters</span> <span class="o">=</span> <span class="n">with_voltmeters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">neuron_params</span> <span class="o">=</span> <span class="n">NEURON_DICT</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reset_network</span><span class="p">(</span><span class="n">initial</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">get_weights</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">)]</span>
+
+<div class="viewcode-block" id="Network.get_weights"><a class="viewcode-back" href="../pang.html#pang.Network.get_weights">[docs]</a>    <span class="k">def</span> <span class="nf">get_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">neuron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get weights targeting a specific neuron.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            neuron (int): Number of targeted neuron.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            numpy.ndarray of weights targeting given neuron in DLS weight domain.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">conns</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">GetConnections</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span><span class="p">,</span>
+                                    <span class="n">target</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">motor_neurons</span><span class="p">[</span><span class="n">neuron</span><span class="p">]])</span>
+        <span class="n">conn_vals</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">GetStatus</span><span class="p">(</span><span class="n">conns</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;weight&quot;</span><span class="p">])</span>
+        <span class="n">conn_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">conn_vals</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nest2dls</span><span class="p">(</span><span class="n">conn_vals</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Network.get_all_weights_flat"><a class="viewcode-back" href="../pang.html#pang.Network.get_all_weights_flat">[docs]</a>    <span class="k">def</span> <span class="nf">get_all_weights_flat</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get all weights as flattened array.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            numpy.array of all weights in DLS weight domain.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">conns</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">GetConnections</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span><span class="p">)</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">GetStatus</span><span class="p">(</span><span class="n">conns</span><span class="p">,</span> <span class="s2">&quot;weight&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nest2dls</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Network.set_all_weights_flat"><a class="viewcode-back" href="../pang.html#pang.Network.set_all_weights_flat">[docs]</a>    <span class="k">def</span> <span class="nf">set_all_weights_flat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weights</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set all weights using given list.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            weights (list, numpy.array): Flat list or array to set weights to.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">conns</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">GetConnections</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span><span class="p">)</span>
+        <span class="n">nest</span><span class="o">.</span><span class="n">SetStatus</span><span class="p">(</span><span class="n">conns</span><span class="p">,</span> <span class="p">[{</span><span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">dls2nest</span><span class="p">(</span><span class="n">w</span><span class="p">)}</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">weights</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="Network.set_weights"><a class="viewcode-back" href="../pang.html#pang.Network.set_weights">[docs]</a>    <span class="k">def</span> <span class="nf">set_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">neuron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set weights of specific neuron.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            weights (list, numpy.array): Weights to set.</span>
+<span class="sd">            neuron (int): Number of neuron.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">conns</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">GetConnections</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span><span class="p">,</span>
+                                    <span class="n">target</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">motor_neurons</span><span class="p">[</span><span class="n">neuron</span><span class="p">]])</span>
+        <span class="k">for</span> <span class="n">conn</span><span class="p">,</span> <span class="n">wgt</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">conns</span><span class="p">,</span> <span class="n">weights</span><span class="p">):</span>
+            <span class="n">nest</span><span class="o">.</span><span class="n">SetStatus</span><span class="p">([</span><span class="n">conn</span><span class="p">],</span> <span class="p">{</span><span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dls2nest</span><span class="p">(</span><span class="n">wgt</span><span class="p">))})</span></div>
+
+<div class="viewcode-block" id="Network.get_rates"><a class="viewcode-back" href="../pang.html#pang.Network.get_rates">[docs]</a>    <span class="k">def</span> <span class="nf">get_rates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get rates from spike detectors.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            numpy.array of neuronal spike rates.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">events</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">nest</span><span class="o">.</span><span class="n">GetStatus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spikedetector</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;n_events&quot;</span><span class="p">]))</span>
+        <span class="n">events</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">events</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Network.get_voltage_traces"><a class="viewcode-back" href="../pang.html#pang.Network.get_voltage_traces">[docs]</a>    <span class="k">def</span> <span class="nf">get_voltage_traces</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get voltage traces from voltmeters.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of voltage traces for all neurons.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_voltmeters</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Network was initialized without voltmeters.&quot;</span><span class="p">)</span>
+        <span class="n">traces</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">vmeter</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">voltmeter</span><span class="p">:</span>
+            <span class="n">traces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nest</span><span class="o">.</span><span class="n">GetStatus</span><span class="p">([</span><span class="n">vmeter</span><span class="p">],</span> <span class="s2">&quot;events&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;V_m&quot;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">traces</span></div>
+
+<div class="viewcode-block" id="Network.get_activation_function"><a class="viewcode-back" href="../pang.html#pang.Network.get_activation_function">[docs]</a>    <span class="k">def</span> <span class="nf">get_activation_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get activation function for range of weights.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            start (int): Starting weight.</span>
+<span class="sd">            stop (int): Stopping weight.</span>
+<span class="sd">            step (int): Step size for weights.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of list containing spike rates at different weights.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Getting activation function.&quot;</span><span class="p">)</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
+        <span class="n">act_fct</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">weight</span> <span class="ow">in</span> <span class="n">weights</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Getting rates at weight </span><span class="si">%f</span><span class="s2">...&quot;</span> <span class="o">%</span> <span class="n">weight</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;NEST weight: </span><span class="si">%f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">dls2nest</span><span class="p">(</span><span class="n">weight</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reset_network</span><span class="p">(</span><span class="n">initial</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_all_weights_flat</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">([</span><span class="n">weight</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">)])</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+            <span class="n">spikes</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span> <span class="o">+</span> <span class="n">x</span> <span class="o">*</span> <span class="n">ISI</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">NO_SPIKES</span><span class="p">)]</span>
+            <span class="n">nest</span><span class="o">.</span><span class="n">SetStatus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_generator</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;spike_times&#39;</span><span class="p">:</span> <span class="n">spikes</span><span class="p">})</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">run_simulation</span><span class="p">()</span>
+            <span class="n">rates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_rates</span><span class="p">()</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Got rates:&quot;</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">rates</span><span class="p">)</span>
+            <span class="n">act_fct</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rates</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">act_fct</span></div>
+
+<div class="viewcode-block" id="Network.get_spiketrains"><a class="viewcode-back" href="../pang.html#pang.Network.get_spiketrains">[docs]</a>    <span class="k">def</span> <span class="nf">get_spiketrains</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extract spike times from spikedetector.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List of list containing spike times from all neurons.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">events</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">nest</span><span class="o">.</span><span class="n">GetStatus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spikedetector</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;events&quot;</span><span class="p">]))</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">nrn</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">neuron</span><span class="p">,</span> <span class="n">neuron_events</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">events</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">sp_time</span> <span class="ow">in</span> <span class="n">neuron_events</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;times&#39;</span><span class="p">]:</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">neuron</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sp_time</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+<div class="viewcode-block" id="Network.dls2nest"><a class="viewcode-back" href="../pang.html#pang.Network.dls2nest">[docs]</a>    <span class="k">def</span> <span class="nf">dls2nest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dls_weight</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert weights from DLS into NEST domain using linear transformation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dls_weight (list, int, numpy.array): Weight to convert.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Weight in NEST domain.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dls_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">dls_weight</span><span class="p">)</span>
+        <span class="n">dls_weight</span> <span class="o">+=</span> <span class="p">(</span><span class="n">dls_weight</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">WEIGHT_OFFSET</span>
+        <span class="n">dls_weight</span> <span class="o">*=</span> <span class="n">WEIGHT_SCALE</span>
+        <span class="k">return</span> <span class="n">dls_weight</span></div>
+
+<div class="viewcode-block" id="Network.nest2dls"><a class="viewcode-back" href="../pang.html#pang.Network.nest2dls">[docs]</a>    <span class="k">def</span> <span class="nf">nest2dls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nest_weight</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Convert weight from NEST into DLS domain using linear transformation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            nest_weight(list, int, numpy.array): Weight to convert.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Weight in DLS domain.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nest_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">nest_weight</span><span class="p">)</span>
+        <span class="n">nest_weight</span> <span class="o">/=</span> <span class="n">WEIGHT_SCALE</span>
+        <span class="n">nest_weight</span> <span class="o">-=</span> <span class="p">(</span><span class="n">nest_weight</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">WEIGHT_OFFSET</span>
+        <span class="k">return</span> <span class="n">nest_weight</span></div>
+
+<div class="viewcode-block" id="Network.calculate_stdp"><a class="viewcode-back" href="../pang.html#pang.Network.calculate_stdp">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_stdp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pre_spikes</span><span class="p">,</span> <span class="n">post_spikes</span><span class="p">,</span>
+                       <span class="n">only_causal</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                       <span class="n">next_neighbor</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculates STDP trace for given spike trains.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            pre_spikes(list, numpy.array): Presynaptic spike times in milliseconds.</span>
+<span class="sd">            post_spikes(list, numpy.array): Postsynaptic spike times in milliseconds.</span>
+<span class="sd">            only_causal (bool): Use only causal part.</span>
+<span class="sd">            next_neighbor (bool): Use only next-neighbor coincidences.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Scalar that corresponds to accumulated STDP trace.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pre_spikes</span><span class="p">,</span> <span class="n">post_spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">pre_spikes</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">post_spikes</span><span class="p">)</span>
+        <span class="n">facilitation</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">depression</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">pre_spikes</span><span class="p">,</span> <span class="n">post_spikes</span><span class="p">)</span>
+        <span class="n">last_position</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">for</span> <span class="n">spike</span><span class="p">,</span> <span class="n">position</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">post_spikes</span><span class="p">,</span> <span class="n">positions</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">position</span> <span class="o">==</span> <span class="n">last_position</span> <span class="ow">and</span> <span class="n">next_neighbor</span><span class="p">:</span>
+                <span class="k">continue</span>  <span class="c1"># only next-neighbor pairs</span>
+            <span class="k">if</span> <span class="n">position</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">before_spike</span> <span class="o">=</span> <span class="n">pre_spikes</span><span class="p">[</span><span class="n">position</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">facilitation</span> <span class="o">+=</span> <span class="n">STDP_AMPLITUDE</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">spike</span> <span class="o">-</span> <span class="n">before_spike</span><span class="p">)</span>
+                                                        <span class="o">/</span> <span class="n">STDP_TAU</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">position</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">pre_spikes</span><span class="p">):</span>
+                <span class="n">after_spike</span> <span class="o">=</span> <span class="n">pre_spikes</span><span class="p">[</span><span class="n">position</span><span class="p">]</span>
+                <span class="n">depression</span> <span class="o">+=</span> <span class="n">STDP_AMPLITUDE</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">after_spike</span> <span class="o">-</span> <span class="n">spike</span><span class="p">)</span> <span class="o">/</span>
+                                                      <span class="n">STDP_TAU</span><span class="p">)</span>
+            <span class="n">last_position</span> <span class="o">=</span> <span class="n">position</span>
+        <span class="k">if</span> <span class="n">only_causal</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">facilitation</span><span class="p">,</span> <span class="n">STDP_SATURATION</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">facilitation</span> <span class="o">-</span> <span class="n">depression</span><span class="p">,</span> <span class="n">STDP_SATURATION</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Network.create_input_spiketrain"><a class="viewcode-back" href="../pang.html#pang.Network.create_input_spiketrain">[docs]</a>    <span class="k">def</span> <span class="nf">create_input_spiketrain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create input spiketrain.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            numpy.array of spike times.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">TRAIN_TYPE</span> <span class="o">==</span> <span class="s2">&quot;uniform&quot;</span><span class="p">:</span>
+            <span class="n">spikes</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span> <span class="o">+</span> <span class="n">x</span> <span class="o">*</span> <span class="n">ISI</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">NO_SPIKES</span><span class="p">)]</span>
+        <span class="k">elif</span> <span class="n">TRAIN_TYPE</span> <span class="o">==</span> <span class="s2">&quot;poisson&quot;</span><span class="p">:</span>
+            <span class="n">spikes</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">poisson</span><span class="p">(</span><span class="n">ISI</span><span class="p">)]</span>
+            <span class="k">while</span> <span class="n">spikes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">POLL_TIME</span><span class="p">:</span>
+                <span class="n">spikes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">spikes</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">poisson</span><span class="p">(</span><span class="n">ISI</span><span class="p">))</span>
+            <span class="n">spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">spikes</span></div>
+
+<div class="viewcode-block" id="Network.set_input_spiketrain"><a class="viewcode-back" href="../pang.html#pang.Network.set_input_spiketrain">[docs]</a>    <span class="k">def</span> <span class="nf">set_input_spiketrain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_cell</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set spike train encoding position of ball along y-axis.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            input_cell (int): Input unit that corresponds to ball position.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spikes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_input_spiketrain</span><span class="p">()</span>
+        <span class="c1"># Reset first</span>
+        <span class="k">for</span> <span class="n">input_neuron</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">):</span>
+            <span class="n">nest</span><span class="o">.</span><span class="n">SetStatus</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">input_generator</span><span class="p">[</span><span class="n">input_neuron</span><span class="p">]],</span>
+                           <span class="p">{</span><span class="s1">&#39;spike_times&#39;</span><span class="p">:</span> <span class="p">[]})</span>
+        <span class="n">nest</span><span class="o">.</span><span class="n">SetStatus</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">input_generator</span><span class="p">[</span><span class="n">input_cell</span><span class="p">]],</span>
+                       <span class="p">{</span><span class="s1">&#39;spike_times&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">spikes</span><span class="p">})</span></div>
+
+<div class="viewcode-block" id="Network.run_simulation"><a class="viewcode-back" href="../pang.html#pang.Network.run_simulation">[docs]</a>    <span class="k">def</span> <span class="nf">run_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Run NEST simulation.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weights</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">neuron</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_weights</span><span class="p">(</span><span class="n">neuron</span><span class="p">))</span>
+        <span class="n">nest</span><span class="o">.</span><span class="n">Simulate</span><span class="p">(</span><span class="n">POLL_TIME</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Network.apply_reward"><a class="viewcode-back" href="../pang.html#pang.Network.apply_reward">[docs]</a>    <span class="k">def</span> <span class="nf">apply_reward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">ball_neuron</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Apply given reward by calculating and applying weight updates.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            reward (float): Reward.</span>
+<span class="sd">            ball_neuron (int): Input neuron that corresponds to the ball&#39;s cell (only this unit has transmitted spiketrain).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">connection</span> <span class="ow">in</span> <span class="n">nest</span><span class="o">.</span><span class="n">GetConnections</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span><span class="p">[</span><span class="n">ball_neuron</span><span class="p">]]):</span>
+            <span class="c1"># iterate connections originating from input neuron</span>
+            <span class="c1"># connection[0]: source, connection[1]: target</span>
+
+            <span class="n">input_neuron</span> <span class="o">=</span> <span class="n">connection</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">motor_neuron</span> <span class="o">=</span> <span class="n">connection</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">input_gen</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">GetConnections</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_generator</span><span class="p">,</span>
+                                            <span class="n">target</span><span class="o">=</span><span class="p">[</span><span class="n">input_neuron</span><span class="p">])[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">pre_spikes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spikes</span>
+            <span class="n">post_detector</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">GetConnections</span><span class="p">([</span><span class="n">motor_neuron</span><span class="p">],</span>
+                                                <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">spikedetector</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span>
+                                                    <span class="mi">1</span>
+                                                <span class="p">]</span>
+            <span class="n">post_events</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">GetStatus</span><span class="p">([</span><span class="n">post_detector</span><span class="p">],</span> <span class="s2">&quot;events&quot;</span><span class="p">)</span>
+            <span class="n">post_spikes</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">sp_time</span> <span class="ow">in</span> <span class="n">post_events</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;times&quot;</span><span class="p">]:</span>
+                <span class="n">post_spikes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sp_time</span><span class="p">)</span>
+            <span class="n">correlation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_stdp</span><span class="p">(</span><span class="n">pre_spikes</span><span class="p">,</span> <span class="n">post_spikes</span><span class="p">,</span>
+                                              <span class="n">only_causal</span><span class="o">=</span><span class="n">ONLY_CAUSAL</span><span class="p">)</span>
+            <span class="n">old_weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nest2dls</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">nest</span><span class="o">.</span><span class="n">GetStatus</span><span class="p">([</span><span class="n">connection</span><span class="p">],</span>
+                                                               <span class="s2">&quot;weight&quot;</span><span class="p">))[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">new_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span>
+                <span class="n">old_weight</span> <span class="o">+</span> <span class="n">LEARNING_RATE</span> <span class="o">*</span> <span class="n">correlation</span> <span class="o">*</span> <span class="n">reward</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">new_weight</span> <span class="o">&gt;</span> <span class="mf">63.</span><span class="p">:</span>
+                <span class="n">new_weight</span> <span class="o">=</span> <span class="mf">63.</span>
+            <span class="n">nest</span><span class="o">.</span><span class="n">SetStatus</span><span class="p">([</span><span class="n">connection</span><span class="p">],</span> <span class="p">{</span><span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">dls2nest</span><span class="p">(</span><span class="n">new_weight</span><span class="p">)})</span></div>
+
+<div class="viewcode-block" id="Network.reset_rng"><a class="viewcode-back" href="../pang.html#pang.Network.reset_rng">[docs]</a>    <span class="k">def</span> <span class="nf">reset_rng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reset RNG using new seed.&quot;&quot;&quot;</span>
+        <span class="n">nest</span><span class="o">.</span><span class="n">SetStatus</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="p">{</span>
+            <span class="s1">&#39;rng_seeds&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="mi">32</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>
+                                           <span class="n">size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_threads</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="p">})</span></div>
+
+<div class="viewcode-block" id="Network.reset_network"><a class="viewcode-back" href="../pang.html#pang.Network.reset_network">[docs]</a>    <span class="k">def</span> <span class="nf">reset_network</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reset network and NEST objects.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            initial (bool): If false, weights will be conserved.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">initial</span><span class="p">:</span>
+            <span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_all_weights_flat</span><span class="p">()</span>
+        <span class="n">nest</span><span class="o">.</span><span class="n">ResetKernel</span><span class="p">()</span>
+        <span class="n">nest</span><span class="o">.</span><span class="n">SetKernelStatus</span><span class="p">({</span><span class="s2">&quot;local_num_threads&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_threads</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reset_rng</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">Create</span><span class="p">(</span><span class="s2">&quot;parrot_neuron&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_generator</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">Create</span><span class="p">(</span><span class="s2">&quot;spike_generator&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">motor_neurons</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">Create</span><span class="p">(</span><span class="s2">&quot;iaf_psc_exp&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">,</span>
+                                         <span class="n">params</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">neuron_params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spikedetector</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">Create</span><span class="p">(</span><span class="s2">&quot;spike_detector&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">BACKGROUND</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">background_generator</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">Create</span><span class="p">(</span><span class="s2">&quot;noise_generator&quot;</span><span class="p">,</span>
+                                                    <span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">,</span>
+                                                    <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;std&quot;</span><span class="p">:</span> <span class="n">BG_STD</span><span class="p">})</span>
+        <span class="n">nest</span><span class="o">.</span><span class="n">Connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">motor_neurons</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">spikedetector</span><span class="p">,</span>
+                     <span class="p">{</span><span class="s1">&#39;rule&#39;</span><span class="p">:</span> <span class="s1">&#39;one_to_one&#39;</span><span class="p">})</span>
+        <span class="k">if</span> <span class="n">WEIGHT_DIST</span> <span class="o">==</span> <span class="s2">&quot;uniform&quot;</span><span class="p">:</span>
+            <span class="n">nest</span><span class="o">.</span><span class="n">Connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">motor_neurons</span><span class="p">,</span>
+                         <span class="p">{</span><span class="s2">&quot;rule&quot;</span><span class="p">:</span> <span class="s1">&#39;all_to_all&#39;</span><span class="p">},</span>
+                         <span class="p">{</span><span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">dls2nest</span><span class="p">(</span><span class="n">WEIGHT</span><span class="p">)})</span>
+        <span class="k">elif</span> <span class="n">WEIGHT_DIST</span> <span class="o">==</span> <span class="s2">&quot;gaussian&quot;</span><span class="p">:</span>
+            <span class="n">nest</span><span class="o">.</span><span class="n">Connect</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">motor_neurons</span><span class="p">,</span>
+                <span class="p">{</span><span class="s2">&quot;rule&quot;</span><span class="p">:</span> <span class="s1">&#39;all_to_all&#39;</span><span class="p">},</span> <span class="p">{</span>
+                    <span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">dls2nest</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span>
+                        <span class="n">WEIGHT_MEAN</span><span class="p">,</span> <span class="n">WEIGHT_STD</span><span class="p">,</span>
+                        <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">))))</span>
+                <span class="p">})</span>
+        <span class="n">nest</span><span class="o">.</span><span class="n">Connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_generator</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span><span class="p">,</span>
+                     <span class="p">{</span><span class="s1">&#39;rule&#39;</span><span class="p">:</span> <span class="s1">&#39;one_to_one&#39;</span><span class="p">})</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_voltmeters</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">voltmeter</span> <span class="o">=</span> <span class="n">nest</span><span class="o">.</span><span class="n">Create</span><span class="p">(</span><span class="s2">&quot;voltmeter&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">)</span>
+            <span class="n">nest</span><span class="o">.</span><span class="n">SetStatus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">voltmeter</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;withgid&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;withtime&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">})</span>
+            <span class="n">nest</span><span class="o">.</span><span class="n">Connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">voltmeter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">motor_neurons</span><span class="p">,</span>
+                         <span class="p">{</span><span class="s1">&#39;rule&#39;</span><span class="p">:</span> <span class="s1">&#39;one_to_one&#39;</span><span class="p">})</span>
+        <span class="k">if</span> <span class="n">BACKGROUND</span><span class="p">:</span>
+            <span class="n">nest</span><span class="o">.</span><span class="n">Connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">background_generator</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">motor_neurons</span><span class="p">,</span>
+                         <span class="p">{</span><span class="s1">&#39;rule&#39;</span><span class="p">:</span> <span class="s1">&#39;one_to_one&#39;</span><span class="p">})</span>
+        <span class="n">nest</span><span class="o">.</span><span class="n">set_verbosity</span><span class="p">(</span><span class="s2">&quot;M_WARNING&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">initial</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_all_weights_flat</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_weights</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_all_weights_flat</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_weights</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span></div></div>
+
+
+<div class="viewcode-block" id="AIPong"><a class="viewcode-back" href="../pang.html#pang.AIPong">[docs]</a><span class="k">class</span> <span class="nc">AIPong</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Combines neural network and pong game.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            num_games (int): Maximum number of games to play.</span>
+<span class="sd">            debug (bool): Print debug messages.</span>
+<span class="sd">            num_threads (int): Number of threads to use.</span>
+<span class="sd">            initial_weights (numpy.array): Initial weight matrix.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">num_games</span><span class="o">=</span><span class="mi">100000</span><span class="p">,</span>
+                 <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                 <span class="n">num_threads</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                 <span class="n">initial_weights</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">game</span> <span class="o">=</span> <span class="n">pong</span><span class="o">.</span><span class="n">GameOfPong</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="n">debug</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initial_weights</span> <span class="o">=</span> <span class="n">initial_weights</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">network</span> <span class="o">=</span> <span class="n">Network</span><span class="p">(</span><span class="n">num_threads</span><span class="o">=</span><span class="n">num_threads</span><span class="p">,</span>
+                               <span class="n">initial_weights</span><span class="o">=</span><span class="n">initial_weights</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug</span> <span class="o">=</span> <span class="n">debug</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_games</span> <span class="o">=</span> <span class="n">num_games</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_threads</span> <span class="o">=</span> <span class="n">num_threads</span>
+
+<div class="viewcode-block" id="AIPong.poll_network"><a class="viewcode-back" href="../pang.html#pang.AIPong.poll_network">[docs]</a>    <span class="k">def</span> <span class="nf">poll_network</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get grid cell network wants to move to. Find this cell by finding the winning (highest rate) motor neuron.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Running simulation...&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">run_simulation</span><span class="p">()</span>
+        <span class="n">rates</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">get_rates</span><span class="p">()</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Got rates: &quot;</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">rates</span><span class="p">)</span>
+        <span class="n">winning_neuron</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">rates</span> <span class="o">==</span> <span class="n">rates</span><span class="o">.</span><span class="n">max</span><span class="p">())))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_cell</span> <span class="o">=</span> <span class="n">winning_neuron</span></div>
+
+<div class="viewcode-block" id="AIPong.adjust_paddle_movement"><a class="viewcode-back" href="../pang.html#pang.AIPong.adjust_paddle_movement">[docs]</a>    <span class="k">def</span> <span class="nf">adjust_paddle_movement</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Adjust paddle movement according to target cell.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">get_cell</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_cell</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">move_right_paddle_up</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">get_cell</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_cell</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">dont_move_right_paddle</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">get_cell</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_cell</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">move_right_paddle_down</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="AIPong.reward_network_by_move"><a class="viewcode-back" href="../pang.html#pang.AIPong.reward_network_by_move">[docs]</a>    <span class="k">def</span> <span class="nf">reward_network_by_move</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Reward network based on whether the correct cell was targeted.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball_cell</span>
+
+        <span class="k">def</span> <span class="nf">calc_reward</span><span class="p">(</span><span class="n">bare_reward</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reward</span> <span class="o">=</span> <span class="n">bare_reward</span> <span class="o">+</span> <span class="n">REWARD_OFFSET</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mean_reward</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mean_reward</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reward</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">success</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reward</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mean_reward</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mean_reward</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mean_reward</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">success</span> <span class="o">/</span> <span class="n">MEAN_RUNS</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">performance</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">bare_reward</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">apply_reward</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">success</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+
+        <span class="n">rewards_dict</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mf">0.4</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">}</span>
+        <span class="n">distance</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_cell</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">ball_cell</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">distance</span> <span class="ow">in</span> <span class="n">rewards_dict</span><span class="p">:</span>
+            <span class="n">calc_reward</span><span class="p">(</span><span class="n">rewards_dict</span><span class="p">[</span><span class="n">distance</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">calc_reward</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Applying reward=</span><span class="si">%.3f</span><span class="s2">, mean reward=</span><span class="si">%.3f</span><span class="s2">, success=</span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span>
+                      <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reward</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mean_reward</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">success</span><span class="p">))</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Mean rewards:&quot;</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mean_reward</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Average mean reward:&quot;</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mean_reward</span><span class="p">))</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Performances:&quot;</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">performance</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AIPong.get_parameters"><a class="viewcode-back" href="../pang.html#pang.AIPong.get_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">get_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get used parameters.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Dictionary of used parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">parameter_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;WEIGHT_SCALE&quot;</span><span class="p">:</span> <span class="n">WEIGHT_SCALE</span><span class="p">,</span>
+            <span class="s2">&quot;WEIGHT&quot;</span><span class="p">:</span> <span class="n">WEIGHT</span><span class="p">,</span>
+            <span class="s2">&quot;ISI&quot;</span><span class="p">:</span> <span class="n">ISI</span><span class="p">,</span>
+            <span class="s2">&quot;BG_STD&quot;</span><span class="p">:</span> <span class="n">BG_STD</span><span class="p">,</span>
+            <span class="s2">&quot;NO_SPIKES&quot;</span><span class="p">:</span> <span class="n">NO_SPIKES</span><span class="p">,</span>
+            <span class="s2">&quot;WEIGHT_MAX&quot;</span><span class="p">:</span> <span class="n">WEIGHT_MAX</span><span class="p">,</span>
+            <span class="s2">&quot;STDP_AMPLITUDE&quot;</span><span class="p">:</span> <span class="n">STDP_AMPLITUDE</span><span class="p">,</span>
+            <span class="s2">&quot;STDP_TAU&quot;</span><span class="p">:</span> <span class="n">STDP_TAU</span><span class="p">,</span>
+            <span class="s2">&quot;WEIGHT_DIST&quot;</span><span class="p">:</span> <span class="n">WEIGHT_DIST</span><span class="p">,</span>
+            <span class="s2">&quot;WEIGHT_MEAN&quot;</span><span class="p">:</span> <span class="n">WEIGHT_MEAN</span><span class="p">,</span>
+            <span class="s2">&quot;WEIGHT_STD&quot;</span><span class="p">:</span> <span class="n">WEIGHT_STD</span><span class="p">,</span>
+            <span class="s2">&quot;NEURON_DICT&quot;</span><span class="p">:</span> <span class="n">NEURON_DICT</span><span class="p">,</span>
+            <span class="s2">&quot;MEAN_RUNS&quot;</span><span class="p">:</span> <span class="n">MEAN_RUNS</span><span class="p">,</span>
+            <span class="s2">&quot;ONLY_CAUSAL&quot;</span><span class="p">:</span> <span class="n">ONLY_CAUSAL</span><span class="p">,</span>
+            <span class="s2">&quot;REWARD_OFFSET&quot;</span><span class="p">:</span> <span class="n">REWARD_OFFSET</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">parameter_dict</span></div>
+
+<div class="viewcode-block" id="AIPong.run_games"><a class="viewcode-back" href="../pang.html#pang.AIPong.run_games">[docs]</a>    <span class="k">def</span> <span class="nf">run_games</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">folder</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">max_runs</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Run games by polling network and stepping through game.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            save_every (int): Number of iterations after which to save variables.</span>
+<span class="sd">            folder (string): Folder to save to.</span>
+<span class="sd">            max_runs (int): Maximum number of iterations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">run</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">expdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()))</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_parameters</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">save_every</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">folder</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">folder</span><span class="p">):</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">expdir</span><span class="p">)</span>
+            <span class="n">file</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">expdir</span><span class="p">,</span> <span class="s2">&quot;parameters.pkl&quot;</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">file</span><span class="p">)</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">correlations</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">weight_history</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mean_reward</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.</span>
+                                     <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">)])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">performance</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.</span>
+                                     <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">num_neurons</span><span class="p">)])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mean_reward_history</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">performance_history</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">run_history</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">run</span> <span class="o">&lt;</span> <span class="n">max_runs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ball_cell</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">get_cell</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;Run #</span><span class="si">%d</span><span class="s2">, Ball in cell (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">), Paddle in cell (</span><span class="si">%d</span><span class="s2">, </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">run</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">get_cell</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
+                 <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">ball</span><span class="o">.</span><span class="n">get_cell</span><span class="p">()[</span><span class="mi">1</span><span class="p">],</span>
+                 <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">get_cell</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span>
+                 <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">right_paddle</span><span class="o">.</span><span class="n">get_cell</span><span class="p">()[</span><span class="mi">1</span><span class="p">]))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">set_input_spiketrain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ball_cell</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">poll_network</span><span class="p">()</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Network wants to go to cell </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_cell</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">adjust_paddle_movement</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reward_network_by_move</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">weight_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">weights</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mean_reward_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mean_reward</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">performance_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">performance</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">reset_network</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">run_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">run</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">run</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">result</span> <span class="o">!=</span> <span class="n">pong</span><span class="o">.</span><span class="n">NO_WIN</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Game ended with </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">game</span><span class="o">.</span><span class="n">result</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">game</span> <span class="o">=</span> <span class="n">pong</span><span class="o">.</span><span class="n">GameOfPong</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">debug</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">save_every</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">expdir</span><span class="p">,</span> <span class="s2">&quot;data.pkl.gz&quot;</span><span class="p">),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">mean_reward_history</span><span class="p">[::</span><span class="n">save_every</span><span class="p">],</span>
+                             <span class="bp">self</span><span class="o">.</span><span class="n">performance_history</span><span class="p">[::</span><span class="n">save_every</span><span class="p">],</span>
+                             <span class="bp">self</span><span class="o">.</span><span class="n">weight_history</span><span class="p">[::</span><span class="n">save_every</span><span class="p">],</span>
+                             <span class="bp">self</span><span class="o">.</span><span class="n">run_history</span><span class="p">[::</span><span class="n">save_every</span><span class="p">]),</span> <span class="n">file</span><span class="p">)</span></div></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--runs&quot;</span><span class="p">,</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+                        <span class="n">default</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of runs to perform.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--debug&quot;</span><span class="p">,</span>
+                        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Verbose debugging output.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--save-every&quot;</span><span class="p">,</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+                        <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Save every X runs to file.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--act-fct&quot;</span><span class="p">,</span>
+                        <span class="n">nargs</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Get activation function: start stop step.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--threads&quot;</span><span class="p">,</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Number of threads for NEST simulation.&quot;</span><span class="p">,</span>
+                        <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--folder&quot;</span><span class="p">,</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+                        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Folder to save experiments to.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--diagonal-weights&quot;</span><span class="p">,</span>
+                        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Use diagonal initial weights.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--profile&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">diagonal_weights</span><span class="p">:</span>
+        <span class="n">initial_weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diagflat</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">32</span><span class="p">))</span> <span class="o">*</span> <span class="mf">63.</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">initial_weights</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="nb">print</span> <span class="n">initial_weights</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">debug</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">act_fct</span><span class="p">:</span>
+        <span class="n">network</span> <span class="o">=</span> <span class="n">Network</span><span class="p">(</span><span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">threads</span><span class="p">)</span>
+        <span class="n">act_fct</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">get_activation_function</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">act_fct</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                                  <span class="n">args</span><span class="o">.</span><span class="n">act_fct</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                                                  <span class="n">step</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">act_fct</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">save_every</span><span class="p">:</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;rates_</span><span class="si">%f</span><span class="s2">.pkl&quot;</span> <span class="o">%</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">(),</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">act_fct</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">aipong</span> <span class="o">=</span> <span class="n">AIPong</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">num_threads</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">threads</span><span class="p">,</span>
+                        <span class="n">initial_weights</span><span class="o">=</span><span class="n">initial_weights</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">profile</span><span class="p">:</span>
+            <span class="n">cProfile</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="s2">&quot;aipong.run_games(max_runs=args.runs, save_every=args.save_every)&quot;</span><span class="p">,</span>
+                <span class="n">sort</span><span class="o">=</span><span class="s2">&quot;time&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">aipong</span><span class="o">.</span><span class="n">run_games</span><span class="p">(</span><span class="n">max_runs</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">runs</span><span class="p">,</span>
+                             <span class="n">save_every</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">save_every</span><span class="p">,</span>
+                             <span class="n">folder</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">folder</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Neuromorphic R-STDP Experiment Simulation</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../pong.html">pong module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pang.html">pang module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Timo Wunderlich.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
